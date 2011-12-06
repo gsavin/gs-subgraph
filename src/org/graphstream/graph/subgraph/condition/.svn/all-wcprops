@@ -1,0 +1,59 @@
+K 25
+svn:wc:ra_dav:version-url
+V 108
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition
+END
+IDCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 125
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/IDCondition.java
+END
+XORCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 126
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/XORCondition.java
+END
+AttributeCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 132
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/AttributeCondition.java
+END
+TrueCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 127
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/TrueCondition.java
+END
+FalseCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 128
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/FalseCondition.java
+END
+NOTCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 126
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/NOTCondition.java
+END
+ORCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 125
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/ORCondition.java
+END
+ANDCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 126
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/ANDCondition.java
+END
+InterEdgeCondition.java
+K 25
+svn:wc:ra_dav:version-url
+V 132
+/svnroot/graphstream/!svn/ver/1225/gs-core/branches/gsavin/subgraph/org/graphstream/graph/subgraph/condition/InterEdgeCondition.java
+END
