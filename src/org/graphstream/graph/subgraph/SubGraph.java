@@ -202,20 +202,33 @@ public class SubGraph extends AbstractElement implements Graph {
 	}
 
 	public void include(Element e) {
+		String id = e.getId();
 
-		if (e instanceof Node)
-			nodes.add(e.getId());
-		else if (e instanceof Edge)
-			edges.add(e.getId());
+		if (e instanceof Node) {
+			if (nodes.add(id))
+				listeners.sendNodeAdded(getId(), id);
+		} else if (e instanceof Edge) {
+			if (edges.add(e.getId())) {
+				Edge ed = (Edge) e;
+				listeners.sendEdgeAdded(getId(), id,
+						ed.getSourceNode().getId(), ed.getTargetNode().getId(),
+						ed.isDirected());
+			}
+		}
 
 	}
 
 	public void remove(Element e) {
-
-		if (e instanceof Node)
-			nodes.remove(e.getId());
-		else if (e instanceof Edge)
-			edges.remove(e.getId());
+		String id = e.getId();
+		
+		if (e instanceof Node) {
+			if(nodes.remove(id))
+				listeners.sendNodeRemoved(getId(), id);
+		}
+		else if (e instanceof Edge) {
+			if(edges.remove(id))
+				listeners.sendEdgeRemoved(getId(), id);
+		}
 
 	}
 
@@ -243,6 +256,7 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
+	 * 
 	 * @see org.graphstream.graph.Graph#addEdge(java.lang.String, int, int)
 	 */
 	public <T extends Edge> T addEdge(String id, int index1, int index2)
@@ -253,7 +267,9 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
-	 * @see org.graphstream.graph.Graph#addEdge(java.lang.String, int, int, boolean)
+	 * 
+	 * @see org.graphstream.graph.Graph#addEdge(java.lang.String, int, int,
+	 * boolean)
 	 */
 	public <T extends Edge> T addEdge(String id, int fromIndex, int toIndex,
 			boolean directed) throws IndexOutOfBoundsException,
@@ -263,7 +279,9 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
-	 * @see org.graphstream.graph.Graph#addEdge(java.lang.String, org.graphstream.graph.Node, org.graphstream.graph.Node)
+	 * 
+	 * @see org.graphstream.graph.Graph#addEdge(java.lang.String,
+	 * org.graphstream.graph.Node, org.graphstream.graph.Node)
 	 */
 	public <T extends Edge> T addEdge(String id, Node node1, Node node2)
 			throws IdAlreadyInUseException, EdgeRejectedException {
@@ -272,7 +290,9 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
-	 * @see org.graphstream.graph.Graph#addEdge(java.lang.String, org.graphstream.graph.Node, org.graphstream.graph.Node, boolean)
+	 * 
+	 * @see org.graphstream.graph.Graph#addEdge(java.lang.String,
+	 * org.graphstream.graph.Node, org.graphstream.graph.Node, boolean)
 	 */
 	public <T extends Edge> T addEdge(String id, Node from, Node to,
 			boolean directed) throws IdAlreadyInUseException,
@@ -450,6 +470,7 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
+	 * 
 	 * @see org.graphstream.graph.Graph#getEdge(int)
 	 */
 	public <T extends Edge> T getEdge(int index)
@@ -482,6 +503,7 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
+	 * 
 	 * @see org.graphstream.graph.Graph#getNode(int)
 	 */
 	public <T extends Node> T getNode(int index)
@@ -607,6 +629,7 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
+	 * 
 	 * @see org.graphstream.graph.Graph#removeEdge(int)
 	 */
 	public <T extends Edge> T removeEdge(int index)
@@ -616,6 +639,7 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
+	 * 
 	 * @see org.graphstream.graph.Graph#removeEdge(int, int)
 	 */
 	public <T extends Edge> T removeEdge(int fromIndex, int toIndex)
@@ -625,7 +649,9 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
-	 * @see org.graphstream.graph.Graph#removeEdge(org.graphstream.graph.Node, org.graphstream.graph.Node)
+	 * 
+	 * @see org.graphstream.graph.Graph#removeEdge(org.graphstream.graph.Node,
+	 * org.graphstream.graph.Node)
 	 */
 	public <T extends Edge> T removeEdge(Node node1, Node node2)
 			throws ElementNotFoundException {
@@ -634,6 +660,7 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	/*
 	 * (non-Javadoc)
+	 * 
 	 * @see org.graphstream.graph.Graph#removeEdge(org.graphstream.graph.Edge)
 	 */
 	public <T extends Edge> T removeEdge(Edge edge) {
