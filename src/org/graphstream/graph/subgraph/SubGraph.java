@@ -27,6 +27,7 @@ package org.graphstream.graph.subgraph;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 
@@ -40,10 +41,6 @@ import org.graphstream.graph.IdAlreadyInUseException;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.NodeFactory;
 import org.graphstream.graph.implementations.AbstractElement;
-import org.graphstream.graph.subgraph.condition.AttributeCondition;
-import org.graphstream.graph.subgraph.condition.FalseCondition;
-import org.graphstream.graph.subgraph.condition.ORCondition;
-import org.graphstream.graph.subgraph.condition.InterEdgeCondition;
 import org.graphstream.stream.AttributeSink;
 import org.graphstream.stream.ElementSink;
 import org.graphstream.stream.GraphParseException;
@@ -58,6 +55,10 @@ import org.graphstream.ui.layout.Layout;
 import org.graphstream.ui.swingViewer.GraphRenderer;
 import org.graphstream.ui.swingViewer.Viewer;
 import org.graphstream.ui.swingViewer.basicRenderer.SwingBasicGraphRenderer;
+import org.graphstream.util.Filter;
+import org.graphstream.util.FilteredEdgeIterator;
+import org.graphstream.util.FilteredNodeIterator;
+import org.graphstream.util.Filters;
 
 public class SubGraph extends AbstractElement implements Graph {
 	public static SubGraph selectFromAttribute(Graph g, String attribute) {
@@ -93,87 +94,25 @@ public class SubGraph extends AbstractElement implements Graph {
 	 */
 	public static SubGraph selectFromAttribute(Graph g, String attribute,
 			String value, boolean includeInterEdges, boolean staticInclusion) {
-		IncludeCondition condition = new AttributeCondition(attribute, value);
+		Filter<Element> condition = Filters.byAttributeFilter(attribute, value);
 
 		if (includeInterEdges)
-			condition = new ORCondition(condition, new InterEdgeCondition(
-					condition));
+			condition = Filters.or(condition, Filters
+					.byExtremitiesFilter(condition));
 
 		return new SubGraph(String.format("subgraph-%s-attribute-%s-%s", g
 				.getId(), attribute, value), g, condition, staticInclusion);
 	}
 
-	class SubGraphEdgeIterator<T extends Edge> implements Iterator<T> {
-		Iterator<String> ite;
-
-		public SubGraphEdgeIterator() {
-			this.ite = edges.iterator();
-		}
-
-		public boolean hasNext() {
-			return ite.hasNext();
-		}
-
-		public T next() {
-			String edgeId = ite.next();
-
-			if (edgeId != null)
-				return fullGraph.getEdge(edgeId);
-
-			return null;
-		}
-
-		public void remove() {
-
-		}
-	}
-
-	class SubGraphEdgeIterable<T extends Edge> implements Iterable<T> {
-		public Iterator<T> iterator() {
-			return new SubGraphEdgeIterator<T>();
-		}
-	}
-
-	class SubGraphNodeIterator<T extends Node> implements Iterator<T> {
-		Iterator<String> ite;
-
-		public SubGraphNodeIterator() {
-			this.ite = nodes.iterator();
-		}
-
-		public boolean hasNext() {
-			return ite.hasNext();
-		}
-
-		public T next() {
-			String nodeId = ite.next();
-
-			if (nodeId != null)
-				return fullGraph.getNode(nodeId);
-
-			return null;
-		}
-
-		public void remove() {
-
-		}
-	}
-
-	class SubGraphNodeIterable<T extends Node> implements Iterable<T> {
-		public Iterator<T> iterator() {
-			return new SubGraphNodeIterator<T>();
-		}
-	}
-
 	protected final Graph fullGraph;
-	protected IncludeCondition condition;
+	protected Filter<Element> condition;
 	protected GraphListeners listeners;
 	protected FullGraphListener fullGraphListener;
-	protected final HashSet<String> nodes;
+	protected final HashMap<String, FilteredNode> nodes;
 	protected final HashSet<String> edges;
 	protected boolean staticInclusion;
 
-	public SubGraph(String id, Graph fullGraph, IncludeCondition condition,
+	public SubGraph(String id, Graph fullGraph, Filter<Element> condition,
 			boolean staticInclusion) {
 		super(id);
 
@@ -184,29 +123,31 @@ public class SubGraph extends AbstractElement implements Graph {
 		this.listeners = new GraphListeners();
 		this.fullGraphListener = new FullGraphListener();
 
-		this.nodes = new HashSet<String>();
+		this.nodes = new HashMap<String, FilteredNode>();
 		this.edges = new HashSet<String>();
 
 		for (Node n : fullGraph)
-			if (condition.isInside(n))
-				nodes.add(n.getId());
+			if (condition.isAvailable(n))
+				nodes.put(n.getId(), new FilteredNode(this, n));
 
 		for (Edge e : fullGraph.getEdgeSet())
-			if (condition.isInside(e))
+			if (condition.isAvailable(e))
 				edges.add(e.getId());
 
 		if (!staticInclusion)
 			fullGraph.addSink(fullGraphListener);
 		else
-			this.condition = new FalseCondition();
+			this.condition = Filters.falseFilter();
 	}
 
 	public void include(Element e) {
 		String id = e.getId();
 
 		if (e instanceof Node) {
-			if (nodes.add(id))
+			if (!nodes.containsKey(id)) {
+				nodes.put(id, new FilteredNode(this, (Node) e));
 				listeners.sendNodeAdded(getId(), id);
+			}
 		} else if (e instanceof Edge) {
 			if (edges.add(e.getId())) {
 				Edge ed = (Edge) e;
@@ -220,13 +161,12 @@ public class SubGraph extends AbstractElement implements Graph {
 
 	public void remove(Element e) {
 		String id = e.getId();
-		
+
 		if (e instanceof Node) {
-			if(nodes.remove(id))
+			if (nodes.remove(id) != null)
 				listeners.sendNodeRemoved(getId(), id);
-		}
-		else if (e instanceof Edge) {
-			if(edges.remove(id))
+		} else if (e instanceof Edge) {
+			if (edges.remove(id))
 				listeners.sendEdgeRemoved(getId(), id);
 		}
 
@@ -235,6 +175,40 @@ public class SubGraph extends AbstractElement implements Graph {
 	public void empty() {
 		nodes.clear();
 		edges.clear();
+	}
+
+	public Filter<? extends Element> asElementFilter() {
+		return new Filter<Element>() {
+			public boolean isAvailable(Element e) {
+				return contains(e);
+			}
+		};
+	}
+
+	public <T extends Node> Filter<T> asNodeFilter() {
+		return new Filter<T>() {
+			public boolean isAvailable(T e) {
+				return contains(e);
+			}
+		};
+	}
+
+	public <T extends Edge> Filter<T> asEdgeFilter() {
+		return new Filter<T>() {
+			public boolean isAvailable(T e) {
+				return contains(e);
+			}
+		};
+	}
+
+	public boolean contains(Element e) {
+		if (nodes.containsKey(e.getId()))
+			return true;
+
+		if (edges.contains(e.getId()))
+			return true;
+
+		return false;
 	}
 
 	/**
@@ -299,7 +273,7 @@ public class SubGraph extends AbstractElement implements Graph {
 			EdgeRejectedException {
 		T e = fullGraph.addEdge(id, from, to, directed);
 
-		if (condition.isInside(e)) {
+		if (condition.isAvailable(e)) {
 			edges.add(id);
 			listeners.sendEdgeAdded(getId(), id, from.getId(), to.getId(),
 					directed);
@@ -314,13 +288,12 @@ public class SubGraph extends AbstractElement implements Graph {
 	public <T extends Node> T addNode(String id) throws IdAlreadyInUseException {
 		T n = fullGraph.addNode(id);
 
-		if (condition.isInside(n)) {
-			nodes.add(id);
-			listeners.sendNodeAdded(getId(), id);
+		if (condition.isAvailable(n)) {
+			include(n);
 
-			for (Edge e : n)
-				addEdge(e.getId(), e.getSourceNode().getId(), e.getTargetNode()
-						.getId(), e.isDirected());
+			// for (Edge e : n)
+			// addEdge(e.getId(), e.getSourceNode().getId(), e.getTargetNode()
+			// .getId(), e.isDirected());
 		}
 
 		return n;
@@ -465,7 +438,7 @@ public class SubGraph extends AbstractElement implements Graph {
 		if (e == null)
 			return null;
 
-		return condition.isInside(e) ? e : null;
+		return condition.isAvailable(e) ? e : null;
 	}
 
 	/*
@@ -480,25 +453,39 @@ public class SubGraph extends AbstractElement implements Graph {
 		if (e == null)
 			return null;
 
-		return condition.isInside(e) ? e : null;
+		return condition.isAvailable(e) ? e : null;
 	}
 
-	/**
-	 * @see org.graphstream.graph.Graph
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.Graph#getEdgeCount()
 	 */
 	public int getEdgeCount() {
 		return edges.size();
 	}
 
-	/**
-	 * @see org.graphstream.graph.Graph
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.Graph#getEdgeIterator()
 	 */
 	public <T extends Edge> Iterator<T> getEdgeIterator() {
-		return new SubGraphEdgeIterator<T>();
+		return new FilteredEdgeIterator<T>(fullGraph.<T> getEdgeIterator(),
+				this.<T> asEdgeFilter());
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.Graph#getEachEdge()
+	 */
 	public <T extends Edge> Iterable<T> getEachEdge() {
-		return new SubGraphEdgeIterable<T>();
+		return new Iterable<T>() {
+			public Iterator<T> iterator() {
+				return getEdgeIterator();
+			}
+		};
 	}
 
 	/*
@@ -513,7 +500,7 @@ public class SubGraph extends AbstractElement implements Graph {
 		if (n == null)
 			return null;
 
-		return condition.isInside(n) ? n : null;
+		return condition.isAvailable(n) ? n : null;
 	}
 
 	/**
@@ -525,7 +512,7 @@ public class SubGraph extends AbstractElement implements Graph {
 		if (n == null)
 			return null;
 
-		return condition.isInside(n) ? n : null;
+		return condition.isAvailable(n) ? n : null;
 	}
 
 	/**
@@ -539,11 +526,16 @@ public class SubGraph extends AbstractElement implements Graph {
 	 * @see org.graphstream.graph.Graph
 	 */
 	public <T extends Node> Iterator<T> getNodeIterator() {
-		return new SubGraphNodeIterator<T>();
+		return new FilteredNodeIterator<T>(fullGraph.<T> getNodeIterator(),
+				this.<T> asNodeFilter());
 	}
 
 	public <T extends Node> Iterable<T> getEachNode() {
-		return new SubGraphNodeIterable<T>();
+		return new Iterable<T>() {
+			public Iterator<T> iterator() {
+				return getNodeIterator();
+			}
+		};
 	}
 
 	/**
@@ -610,7 +602,7 @@ public class SubGraph extends AbstractElement implements Graph {
 
 		Edge e = fromNode.getEdgeToward(to);
 
-		if (e != null && condition.isInside(e)) {
+		if (e != null && condition.isAvailable(e)) {
 			edges.remove(e.getId());
 			listeners.sendEdgeRemoved(getId(), e.getId());
 			return fullGraph.removeEdge(from, to);
@@ -955,22 +947,25 @@ public class SubGraph extends AbstractElement implements Graph {
 				newValue);
 	}
 
-	/**
-	 * @see org.graphstream.graph.Graph
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Iterable#iterator()
 	 */
 	public Iterator<Node> iterator() {
-		return new SubGraphNodeIterator<Node>();
+		return getNodeIterator();
 	}
 
-	/**
-	 * @see org.graphstream.graph.Graph
+	/*
+	 * (non-Javadoc)
+	 * @see org.graphstream.graph.implementations.AbstractElement#myGraphId()
 	 */
 	protected String myGraphId() {
 		return getId();
 	}
 
-	/**
-	 * @see org.graphstream.graph.Graph
+	/*
+	 * (non-Javadoc)
+	 * @see org.graphstream.graph.implementations.AbstractElement#newEvent()
 	 */
 	protected long newEvent() {
 		// TODO Auto-generated method stub
@@ -982,13 +977,13 @@ public class SubGraph extends AbstractElement implements Graph {
 			Node n = fullGraph.getNode(nodeId);
 
 			if (n != null) {
-				if (condition.isInside(n) && !nodes.contains(nodeId)) {
+				if (condition.isAvailable(n) && !nodes.contains(nodeId)) {
 					nodes.add(nodeId);
 					listeners.sendNodeAdded(getId(), nodeId);
 
 					for (int i = 0; i < n.getDegree(); i++)
 						checkEdgeInclusion(n.getEdge(i).getId());
-				} else if (!condition.isInside(n) && nodes.contains(nodeId)) {
+				} else if (!condition.isAvailable(n) && nodes.contains(nodeId)) {
 					for (int i = 0; i < n.getDegree(); i++)
 						edges.remove(n.getEdge(i).getId());
 
@@ -1002,13 +997,13 @@ public class SubGraph extends AbstractElement implements Graph {
 			Edge e = fullGraph.getEdge(edgeId);
 
 			if (e != null) {
-				if (condition.isInside(e) && !edges.contains(edgeId)) {
+				if (condition.isAvailable(e) && !edges.contains(edgeId)) {
 					edges.add(edgeId);
 					listeners
 							.sendEdgeAdded(getId(), edgeId, e.getSourceNode()
 									.getId(), e.getTargetNode().getId(), e
 									.isDirected());
-				} else if (!condition.isInside(e) && edges.contains(edgeId)) {
+				} else if (!condition.isAvailable(e) && edges.contains(edgeId)) {
 					listeners.sendEdgeRemoved(getId(), edgeId);
 					edges.remove(edgeId);
 				}
@@ -1018,7 +1013,7 @@ public class SubGraph extends AbstractElement implements Graph {
 		public void nodeAdded(String sourceId, long timeId, String nodeId) {
 			Node n = fullGraph.getNode(nodeId);
 
-			if (n != null && condition.isInside(n)) {
+			if (n != null && condition.isAvailable(n)) {
 				nodes.add(nodeId);
 				listeners.sendNodeAdded(sourceId, timeId, nodeId);
 			}
@@ -1040,7 +1035,7 @@ public class SubGraph extends AbstractElement implements Graph {
 				String sourceNodeId, String targetNodeId, boolean directed) {
 			Edge e = fullGraph.getEdge(edgeId);
 
-			if (e != null && condition.isInside(e)) {
+			if (e != null && condition.isAvailable(e)) {
 				edges.add(edgeId);
 				listeners.sendEdgeAdded(sourceId, timeId, edgeId, sourceNodeId,
 						targetNodeId, directed);
