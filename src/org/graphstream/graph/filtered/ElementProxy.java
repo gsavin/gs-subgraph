@@ -1,4 +1,4 @@
-package org.graphstream.graph.subgraph;
+package org.graphstream.graph.filtered;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,7 +9,7 @@ import org.graphstream.graph.Element;
 
 public class ElementProxy<E extends Element> implements Element {
 
-	E element;
+	protected final E element;
 	
 	public ElementProxy(E target) {
 		element = target;

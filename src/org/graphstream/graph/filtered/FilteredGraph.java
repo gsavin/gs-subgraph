@@ -1,4 +1,4 @@
-package org.graphstream.graph.subgraph;
+package org.graphstream.graph.filtered;
 
 import java.io.IOException;
 import java.util.AbstractCollection;
@@ -30,7 +30,8 @@ import org.graphstream.util.FilteredEdgeIterator;
 import org.graphstream.util.FilteredNodeIterator;
 import org.graphstream.util.Filters;
 
-public class FilteredGraph extends ElementProxy<Graph> implements Graph {
+public class FilteredGraph extends ElementProxy<Graph> implements Graph,
+		FilteredElement<Graph> {
 
 	Filter<Node> nodeFilter;
 	Filter<Edge> edgeFilter;
@@ -42,6 +43,10 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 	ArrayList<AttributeSink> attributeSinks;
 
 	final FilteredSink filteredSink;
+
+	public FilteredGraph(Graph g) {
+		this(g, Filters.<Node> falseFilter(), Filters.<Edge> falseFilter());
+	}
 
 	public FilteredGraph(Graph g, Filter<Node> nf, Filter<Edge> ef) {
 		super(g);
@@ -71,6 +76,15 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 		}
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.filtered.FilteredElement#getFilteredElement()
+	 */
+	public Graph getFilteredElement() {
+		return element;
+	}
+
 	public void destroy() {
 		element.removeSink(filteredSink);
 		filteredNodes.clear();
@@ -78,11 +92,11 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 		elementSinks.clear();
 		attributeSinks.clear();
 	}
-	
+
 	public void include(Node n) {
 		filteredNodes.put(n.getId(), new FilteredNode(n, this));
 	}
-	
+
 	public void include(Edge e) {
 		filteredEdges.put(e.getId(), new FilteredEdge(e, this));
 
@@ -93,12 +107,43 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 			filteredNodes.get(e.getNode1().getId()).register(e);
 	}
 
+	public void notInclude(Node n) {
+		// TODO
+	}
+
+	public void notInclude(Edge e) {
+		// TODO
+	}
+
 	public Filter<Node> getNodeFilter() {
 		return nodeFilter;
 	}
 
 	public Filter<Edge> getEdgeFilter() {
 		return edgeFilter;
+	}
+
+	public boolean contains(Node n) {
+		return nodeFilter.isAvailable(n);
+	}
+
+	public boolean contains(Edge e) {
+		return edgeFilter.isAvailable(e);
+	}
+
+	public void empty() {
+		filteredNodes.clear();
+		filteredEdges.clear();
+	}
+
+	public <T extends Node> Iterator<T> newFilteredNodeIterator(
+			Iterator<Node> ite) {
+		return new ToFilteredNodeIterator<T>(ite);
+	}
+
+	public <T extends Edge> Iterator<T> newFilteredEdgeIterator(
+			Iterator<Edge> ite) {
+		return new ToFilteredEdgeIterator<T>(ite);
 	}
 
 	/*
@@ -190,10 +235,10 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 			boolean directed) throws IdAlreadyInUseException,
 			EdgeRejectedException {
 		if (from instanceof FilteredNode && filteredNodes.containsValue(from))
-			from = ((FilteredNode) from).getOriginalNode();
+			from = ((FilteredNode) from).getFilteredElement();
 
 		if (to instanceof FilteredNode && filteredNodes.containsValue(to))
-			to = ((FilteredNode) to).getOriginalNode();
+			to = ((FilteredNode) to).getFilteredElement();
 
 		element.addEdge(id, from, to, directed);
 		return (T) filteredEdges.get(id);
@@ -303,11 +348,12 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 	 * 
 	 * @see org.graphstream.graph.Graph#getEdge(java.lang.String)
 	 */
+	@SuppressWarnings("unchecked")
 	public <T extends Edge> T getEdge(String id) {
 		T e = element.getEdge(id);
 
-		if (edgeFilter.isAvailable(e))
-			return e;
+		if (e != null && edgeFilter.isAvailable(e))
+			return (T) filteredEdges.get(id);
 
 		return null;
 	}
@@ -317,12 +363,13 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 	 * 
 	 * @see org.graphstream.graph.Graph#getEdge(int)
 	 */
+	@SuppressWarnings("unchecked")
 	public <T extends Edge> T getEdge(int index)
 			throws IndexOutOfBoundsException {
 		T e = element.getEdge(index);
 
-		if (edgeFilter.isAvailable(e))
-			return e;
+		if (e != null && edgeFilter.isAvailable(e))
+			return (T) filteredEdges.get(e.getId());
 
 		return null;
 	}
@@ -633,7 +680,7 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 	@SuppressWarnings("unchecked")
 	public <T extends Node> T removeNode(Node node) {
 		if (node instanceof FilteredNode && filteredNodes.containsValue(node))
-			node = ((FilteredNode) node).getOriginalNode();
+			node = ((FilteredNode) node).getFilteredElement();
 
 		if (!nodeFilter.isAvailable(node) && isStrict())
 			return null;
@@ -1261,6 +1308,80 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph {
 					attributeSinks.get(i).nodeAttributeRemoved(sourceId,
 							timeId, nodeId, attribute);
 			}
+		}
+	}
+
+	private class ToFilteredNodeIterator<T extends Node> implements Iterator<T> {
+		Iterator<Node> ite;
+
+		ToFilteredNodeIterator(Iterator<Node> ite) {
+			this.ite = ite;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.util.Iterator#hasNext()
+		 */
+		public boolean hasNext() {
+			return ite.hasNext();
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.util.Iterator#next()
+		 */
+		@SuppressWarnings("unchecked")
+		public T next() {
+			Node n = ite.next();
+			return (T) filteredNodes.get(n.getId());
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.util.Iterator#remove()
+		 */
+		public void remove() {
+			ite.remove();
+		}
+	}
+
+	private class ToFilteredEdgeIterator<T extends Edge> implements Iterator<T> {
+		Iterator<Edge> ite;
+
+		ToFilteredEdgeIterator(Iterator<Edge> ite) {
+			this.ite = ite;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.util.Iterator#hasNext()
+		 */
+		public boolean hasNext() {
+			return ite.hasNext();
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.util.Iterator#next()
+		 */
+		@SuppressWarnings("unchecked")
+		public T next() {
+			Edge e = ite.next();
+			return (T) filteredEdges.get(e.getId());
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see java.util.Iterator#remove()
+		 */
+		public void remove() {
+			ite.remove();
 		}
 	}
 }

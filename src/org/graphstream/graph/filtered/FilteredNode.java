@@ -1,4 +1,4 @@
-package org.graphstream.graph.subgraph;
+package org.graphstream.graph.filtered;
 
 import java.util.AbstractCollection;
 import java.util.Collection;
@@ -12,7 +12,8 @@ import org.graphstream.graph.Node;
 import org.graphstream.util.FilteredEdgeIterator;
 import org.graphstream.util.FilteredNodeIterator;
 
-public class FilteredNode extends ElementProxy<Node> implements Node {
+public class FilteredNode extends ElementProxy<Node> implements Node,
+		FilteredElement<Node> {
 
 	FilteredGraph graph;
 	int iDegree, oDegree, ioDegree;
@@ -24,7 +25,12 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 		iDegree = oDegree = ioDegree = 0;
 	}
 
-	public Node getOriginalNode() {
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.filtered.FilteredElement#getFilteredElement()
+	 */
+	public Node getFilteredElement() {
 		return element;
 	}
 
@@ -143,11 +149,11 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 		int j = 0;
 
 		while (j < ioDegree) {
-			T e = element.getEdge(j);
+			Edge e = element.getEdge(j);
 
 			if (graph.getEdgeFilter().isAvailable(e)) {
 				if (i == 0)
-					return e;
+					return graph.getEdge(e.getId());
 				else
 					i--;
 			}
@@ -164,10 +170,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEdgeBetween(java.lang.String)
 	 */
 	public <T extends Edge> T getEdgeBetween(String id) {
-		T e = element.getEdgeBetween(id);
+		Edge e = element.getEdgeBetween(id);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -179,10 +185,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * org.graphstream.graph.Node#getEdgeBetween(org.graphstream.graph.Node)
 	 */
 	public <T extends Edge> T getEdgeBetween(Node node) {
-		T e = element.getEdgeBetween(node);
+		Edge e = element.getEdgeBetween(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -194,10 +200,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 */
 	public <T extends Edge> T getEdgeBetween(int index)
 			throws IndexOutOfBoundsException {
-		T e = element.getEdgeBetween(index);
+		Edge e = element.getEdgeBetween(index);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -208,10 +214,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEdgeFrom(java.lang.String)
 	 */
 	public <T extends Edge> T getEdgeFrom(String id) {
-		T e = element.getEdgeFrom(id);
+		Edge e = element.getEdgeFrom(id);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -222,10 +228,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEdgeFrom(org.graphstream.graph.Node)
 	 */
 	public <T extends Edge> T getEdgeFrom(Node node) {
-		T e = element.getEdgeFrom(node);
+		Edge e = element.getEdgeFrom(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -237,10 +243,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 */
 	public <T extends Edge> T getEdgeFrom(int index)
 			throws IndexOutOfBoundsException {
-		T e = element.getEdgeFrom(index);
+		Edge e = element.getEdgeFrom(index);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -251,8 +257,9 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEdgeIterator()
 	 */
 	public <T extends Edge> Iterator<T> getEdgeIterator() {
-		Iterator<T> org = element.getEdgeIterator();
-		return new FilteredEdgeIterator<T>(org, graph.edgeFilter);
+		Iterator<Edge> org = element.getEdgeIterator();
+		return graph.newFilteredEdgeIterator(new FilteredEdgeIterator<Edge>(
+				org, graph.edgeFilter));
 	}
 
 	/*
@@ -280,10 +287,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEdgeToward(java.lang.String)
 	 */
 	public <T extends Edge> T getEdgeToward(String id) {
-		T e = element.getEdgeToward(id);
+		Edge e = element.getEdgeToward(id);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -294,10 +301,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEdgeToward(org.graphstream.graph.Node)
 	 */
 	public <T extends Edge> T getEdgeToward(Node node) {
-		T e = element.getEdgeToward(node);
+		Edge e = element.getEdgeToward(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -309,10 +316,10 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 */
 	public <T extends Edge> T getEdgeToward(int index)
 			throws IndexOutOfBoundsException {
-		T e = element.getEdgeToward(index);
+		Edge e = element.getEdgeToward(index);
 
 		if (graph.getEdgeFilter().isAvailable(e))
-			return e;
+			return graph.getEdge(e.getId());
 
 		return null;
 	}
@@ -326,11 +333,11 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 		int j = 0;
 
 		while (j < iDegree) {
-			T e = element.getEnteringEdge(j);
+			Edge e = element.getEnteringEdge(j);
 
 			if (graph.getEdgeFilter().isAvailable(e)) {
 				if (i == 0)
-					return e;
+					return graph.getEdge(e.getId());
 				else
 					i--;
 			}
@@ -347,8 +354,9 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEnteringEdgeIterator()
 	 */
 	public <T extends Edge> Iterator<T> getEnteringEdgeIterator() {
-		Iterator<T> org = element.getEnteringEdgeIterator();
-		return new FilteredEdgeIterator<T>(org, graph.edgeFilter);
+		Iterator<Edge> org = element.getEnteringEdgeIterator();
+		return graph.newFilteredEdgeIterator(new FilteredEdgeIterator<Edge>(
+				org, graph.edgeFilter));
 	}
 
 	/*
@@ -397,11 +405,11 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 		int j = 0;
 
 		while (j < oDegree) {
-			T e = element.getLeavingEdge(j);
+			Edge e = element.getLeavingEdge(j);
 
 			if (graph.getEdgeFilter().isAvailable(e)) {
 				if (i == 0)
-					return e;
+					return graph.getEdge(e.getId());
 				else
 					i--;
 			}
@@ -418,8 +426,9 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getLeavingEdgeIterator()
 	 */
 	public <T extends Edge> Iterator<T> getLeavingEdgeIterator() {
-		Iterator<T> org = element.getLeavingEdgeIterator();
-		return new FilteredEdgeIterator<T>(org, graph.edgeFilter);
+		Iterator<Edge> org = element.getLeavingEdgeIterator();
+		return graph.newFilteredEdgeIterator(new FilteredEdgeIterator<Edge>(
+				org, graph.edgeFilter));
 	}
 
 	/*
@@ -447,8 +456,9 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getNeighborNodeIterator()
 	 */
 	public <T extends Node> Iterator<T> getNeighborNodeIterator() {
-		Iterator<T> org = element.getNeighborNodeIterator();
-		return new FilteredNodeIterator<T>(org, graph.nodeFilter);
+		Iterator<Node> org = element.getNeighborNodeIterator();
+		return graph.newFilteredNodeIterator(new FilteredNodeIterator<Node>(
+				org, graph.nodeFilter));
 	}
 
 	/*
@@ -549,7 +559,8 @@ public class FilteredNode extends ElementProxy<Node> implements Node {
 	 */
 	public Iterator<Edge> iterator() {
 		Iterator<Edge> org = element.iterator();
-		return new FilteredEdgeIterator<Edge>(org, graph.edgeFilter);
+		return graph.newFilteredEdgeIterator(new FilteredEdgeIterator<Edge>(
+				org, graph.edgeFilter));
 	}
 
 }

@@ -1,15 +1,25 @@
-package org.graphstream.graph.subgraph;
+package org.graphstream.graph.filtered;
 
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.Node;
 
-public class FilteredEdge extends ElementProxy<Edge> implements Edge {
+public class FilteredEdge extends ElementProxy<Edge> implements Edge,
+		FilteredElement<Edge> {
 
 	FilteredGraph graph;
 
 	public FilteredEdge(Edge e, FilteredGraph g) {
 		super(e);
 		graph = g;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.filtered.FilteredElement#getFilteredElement()
+	 */
+	public Edge getFilteredElement() {
+		return element;
 	}
 
 	/*
