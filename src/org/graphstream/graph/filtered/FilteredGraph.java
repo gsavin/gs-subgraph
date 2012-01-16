@@ -3,6 +3,7 @@ package org.graphstream.graph.filtered;
 import java.io.IOException;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -30,26 +31,37 @@ import org.graphstream.util.FilteredEdgeIterator;
 import org.graphstream.util.FilteredNodeIterator;
 import org.graphstream.util.Filters;
 
-public class FilteredGraph extends ElementProxy<Graph> implements Graph,
-		FilteredElement<Graph> {
+public class FilteredGraph extends FilteredElement<Graph> implements Graph {
+
+	final String id;
 
 	Filter<Node> nodeFilter;
 	Filter<Edge> edgeFilter;
 
-	final HashMap<String, FilteredNode> filteredNodes;
-	final HashMap<String, FilteredEdge> filteredEdges;
+	private final HashMap<String, FilteredNode> filteredNodes;
+	private final HashMap<String, FilteredEdge> filteredEdges;
 
 	ArrayList<ElementSink> elementSinks;
 	ArrayList<AttributeSink> attributeSinks;
 
 	final FilteredSink filteredSink;
 
-	public FilteredGraph(Graph g) {
-		this(g, Filters.<Node> falseFilter(), Filters.<Edge> falseFilter());
+	private FilteredNode[] nodesArray;
+	private FilteredEdge[] edgesArray;
+
+	private int nodesArrayPosition;
+	private int edgesArrayPosition;
+
+	long timeId;
+
+	public FilteredGraph(String id, Graph g) {
+		this(id, g, Filters.<Node> falseFilter(), Filters.<Edge> falseFilter());
 	}
 
-	public FilteredGraph(Graph g, Filter<Node> nf, Filter<Edge> ef) {
+	public FilteredGraph(String id, Graph g, Filter<Node> nf, Filter<Edge> ef) {
 		super(g);
+
+		this.id = id;
 
 		filteredNodes = new HashMap<String, FilteredNode>();
 		filteredEdges = new HashMap<String, FilteredEdge>();
@@ -58,10 +70,15 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 		elementSinks = new ArrayList<ElementSink>();
 		attributeSinks = new ArrayList<AttributeSink>();
 
-		nodeFilter = Filters.or(nf, Filters.<Node> isContained(filteredNodes
-				.values()));
-		edgeFilter = Filters.or(ef, Filters.<Edge> isContained(filteredEdges
-				.values()));
+		nodesArray = new FilteredNode[0];
+		edgesArray = new FilteredEdge[0];
+		nodesArrayPosition = 0;
+		edgesArrayPosition = 0;
+
+		nodeFilter = Filters.or(nf, Filters.<Node> isIdContained(filteredNodes
+				.keySet()));
+		edgeFilter = Filters.or(ef, Filters.<Edge> isIdContained(filteredEdges
+				.keySet()));
 
 		g.addSink(filteredSink);
 
@@ -85,6 +102,20 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 		return element;
 	}
 
+	public Node getUnfilteredNode(Node n) {
+		if (n instanceof FilteredNode && filteredNodes.containsKey(n.getId()))
+			return ((FilteredNode) n).getFilteredElement();
+
+		return n;
+	}
+
+	public Edge getUnfilteredEdge(Edge e) {
+		if (e instanceof FilteredEdge && filteredEdges.containsKey(e.getId()))
+			return ((FilteredEdge) e).getFilteredElement();
+
+		return e;
+	}
+
 	public void destroy() {
 		element.removeSink(filteredSink);
 		filteredNodes.clear();
@@ -94,25 +125,83 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 	}
 
 	public void include(Node n) {
-		filteredNodes.put(n.getId(), new FilteredNode(n, this));
+		if (filteredNodes.containsKey(n.getId()))
+			return;
+
+		FilteredNode fn = new FilteredNode(n, this);
+		filteredNodes.put(n.getId(), fn);
+
+		checkArraysSize();
+		nodesArray[nodesArrayPosition] = fn;
+		fn.setIndex(nodesArrayPosition++);
+
+		for (int i = 0; i < elementSinks.size(); i++)
+			elementSinks.get(i).nodeAdded(id, timeId++, n.getId());
 	}
 
 	public void include(Edge e) {
-		filteredEdges.put(e.getId(), new FilteredEdge(e, this));
+		if (filteredEdges.containsKey(e.getId()))
+			return;
+
+		FilteredEdge fe = new FilteredEdge(e, this);
+		filteredEdges.put(e.getId(), fe);
+
+		checkArraysSize();
+		edgesArray[edgesArrayPosition] = fe;
+		fe.setIndex(edgesArrayPosition++);
 
 		if (filteredNodes.containsKey(e.getNode0().getId()))
 			filteredNodes.get(e.getNode0().getId()).register(e);
 
 		if (filteredNodes.containsKey(e.getNode1().getId()))
 			filteredNodes.get(e.getNode1().getId()).register(e);
+
+		for (int i = 0; i < elementSinks.size(); i++)
+			elementSinks.get(i).edgeAdded(id, timeId++, e.getId(),
+					e.getSourceNode().getId(), e.getTargetNode().getId(),
+					e.isDirected());
 	}
 
 	public void notInclude(Node n) {
-		// TODO
+		if (!filteredNodes.containsKey(n.getId()))
+			return;
+		
+		for (int i = 0; i < elementSinks.size(); i++)
+			elementSinks.get(i).nodeRemoved(id, timeId++, n.getId());
+
+		FilteredNode fn = filteredNodes.remove(n.getId());
+
+		if (fn.getIndex() != nodesArrayPosition - 1 && nodesArrayPosition > 1) {
+			nodesArray[fn.getIndex()] = nodesArray[nodesArrayPosition - 1];
+			nodesArray[fn.getIndex()].setIndex(fn.getIndex());
+			nodesArray[nodesArrayPosition - 1] = null;
+		}
+
+		nodesArrayPosition--;
 	}
 
 	public void notInclude(Edge e) {
-		// TODO
+		if (!filteredEdges.containsKey(e.getId()))
+			return;
+
+		for (int i = 0; i < elementSinks.size(); i++)
+			elementSinks.get(i).edgeRemoved(id, timeId++, e.getId());
+
+		if (filteredNodes.containsKey(e.getNode0().getId()))
+			filteredNodes.get(e.getNode0().getId()).unregister(e);
+
+		if (filteredNodes.containsKey(e.getNode1().getId()))
+			filteredNodes.get(e.getNode1().getId()).unregister(e);
+
+		FilteredEdge fe = filteredEdges.remove(e.getId());
+
+		if (fe.getIndex() != edgesArrayPosition - 1 && edgesArrayPosition > 1) {
+			edgesArray[fe.getIndex()] = edgesArray[edgesArrayPosition - 1];
+			edgesArray[fe.getIndex()].setIndex(fe.getIndex());
+			edgesArray[edgesArrayPosition - 1] = null;
+		}
+
+		edgesArrayPosition--;
 	}
 
 	public Filter<Node> getNodeFilter() {
@@ -144,6 +233,32 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 	public <T extends Edge> Iterator<T> newFilteredEdgeIterator(
 			Iterator<Edge> ite) {
 		return new ToFilteredEdgeIterator<T>(ite);
+	}
+
+	private void checkArraysSize() {
+		if (filteredNodes.size() >= nodesArray.length) {
+			FilteredNode[] tmp = Arrays.copyOf(nodesArray,
+					nodesArray.length + 8);
+			Arrays.fill(nodesArray, null);
+			nodesArray = tmp;
+		}
+
+		if (filteredEdges.size() >= edgesArray.length) {
+			FilteredEdge[] tmp = Arrays.copyOf(edgesArray,
+					edgesArray.length + 8);
+			Arrays.fill(edgesArray, null);
+			edgesArray = tmp;
+		}
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.filtered.FilteredElement#getId()
+	 */
+	@Override
+	public String getId() {
+		return id;
 	}
 
 	/*
@@ -366,12 +481,7 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 	@SuppressWarnings("unchecked")
 	public <T extends Edge> T getEdge(int index)
 			throws IndexOutOfBoundsException {
-		T e = element.getEdge(index);
-
-		if (e != null && edgeFilter.isAvailable(e))
-			return (T) filteredEdges.get(e.getId());
-
-		return null;
+		return (T) edgesArray[index];
 	}
 
 	/*
@@ -389,8 +499,8 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 	 * @see org.graphstream.graph.Graph#getEdgeIterator()
 	 */
 	public <T extends Edge> Iterator<T> getEdgeIterator() {
-		return new FilteredEdgeIterator<T>(element.<T> getEdgeIterator(),
-				edgeFilter);
+		return newFilteredEdgeIterator(new FilteredEdgeIterator<Edge>(element
+				.getEdgeIterator(), edgeFilter));
 	}
 
 	/*
@@ -425,10 +535,10 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 	 * 
 	 * @see org.graphstream.graph.Graph#getNode(int)
 	 */
+	@SuppressWarnings("unchecked")
 	public <T extends Node> T getNode(int index)
 			throws IndexOutOfBoundsException {
-		Node n = element.getNode(index);
-		return getNode(n.getId());
+		return (T) nodesArray[index];
 	}
 
 	/*
@@ -446,8 +556,8 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 	 * @see org.graphstream.graph.Graph#getNodeIterator()
 	 */
 	public <T extends Node> Iterator<T> getNodeIterator() {
-		return new FilteredNodeIterator<T>(element.<T> getNodeIterator(),
-				nodeFilter);
+		return newFilteredNodeIterator(new FilteredNodeIterator<Node>(element
+				.getNodeIterator(), nodeFilter));
 	}
 
 	/*
@@ -1059,20 +1169,8 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 				String fromNodeId, String toNodeId, boolean directed) {
 			Edge e = element.getEdge(edgeId);
 
-			if (edgeFilter.isAvailable(e)) {
-				filteredEdges.put(edgeId, new FilteredEdge(e,
-						FilteredGraph.this));
-
-				if (filteredNodes.containsKey(fromNodeId))
-					filteredNodes.get(fromNodeId).register(e);
-
-				if (filteredNodes.containsKey(toNodeId))
-					filteredNodes.get(toNodeId).register(e);
-
-				for (int i = 0; i < elementSinks.size(); i++)
-					elementSinks.get(i).edgeAdded(sourceId, timeId, edgeId,
-							fromNodeId, toNodeId, directed);
-			}
+			if (edgeFilter.isAvailable(e))
+				include(e);
 		}
 
 		/*
@@ -1084,18 +1182,8 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 		public void edgeRemoved(String sourceId, long timeId, String edgeId) {
 			Edge e = element.getEdge(edgeId);
 
-			if (edgeFilter.isAvailable(e)) {
-				for (int i = 0; i < elementSinks.size(); i++)
-					elementSinks.get(i).edgeRemoved(sourceId, timeId, edgeId);
-
-				if (filteredNodes.containsKey(e.getNode0().getId()))
-					filteredNodes.get(e.getNode0().getId()).unregister(e);
-
-				if (filteredNodes.containsKey(e.getNode1().getId()))
-					filteredNodes.get(e.getNode1().getId()).unregister(e);
-
-				filteredEdges.remove(edgeId);
-			}
+			if (edgeFilter.isAvailable(e))
+				notInclude(e);
 		}
 
 		/*
@@ -1119,13 +1207,8 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 		public void nodeAdded(String sourceId, long timeId, String nodeId) {
 			Node n = element.getNode(nodeId);
 
-			if (nodeFilter.isAvailable(n)) {
-				filteredNodes.put(nodeId, new FilteredNode(n,
-						FilteredGraph.this));
-
-				for (int i = 0; i < elementSinks.size(); i++)
-					elementSinks.get(i).nodeAdded(sourceId, timeId, nodeId);
-			}
+			if (nodeFilter.isAvailable(n))
+				include(n);
 		}
 
 		/*
@@ -1137,12 +1220,8 @@ public class FilteredGraph extends ElementProxy<Graph> implements Graph,
 		public void nodeRemoved(String sourceId, long timeId, String nodeId) {
 			Node n = element.getNode(nodeId);
 
-			if (nodeFilter.isAvailable(n)) {
-				for (int i = 0; i < elementSinks.size(); i++)
-					elementSinks.get(i).nodeRemoved(sourceId, timeId, nodeId);
-
-				filteredNodes.remove(nodeId);
-			}
+			if (nodeFilter.isAvailable(n))
+				notInclude(n);
 		}
 
 		/*

@@ -3,8 +3,7 @@ package org.graphstream.graph.filtered;
 import org.graphstream.graph.Edge;
 import org.graphstream.graph.Node;
 
-public class FilteredEdge extends ElementProxy<Edge> implements Edge,
-		FilteredElement<Edge> {
+public class FilteredEdge extends FilteredElement<Edge> implements Edge {
 
 	FilteredGraph graph;
 
@@ -45,7 +44,9 @@ public class FilteredEdge extends ElementProxy<Edge> implements Edge,
 	 * 
 	 * @see org.graphstream.graph.Edge#getOpposite(org.graphstream.graph.Node)
 	 */
+	@SuppressWarnings("unchecked")
 	public <T extends Node> T getOpposite(Node node) {
+		node = ((FilteredElement<Node>) node).getFilteredElement();
 		return graph.getNode(element.getOpposite(node).getId());
 	}
 
@@ -85,4 +86,13 @@ public class FilteredEdge extends ElementProxy<Edge> implements Edge,
 		return element.isLoop();
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return getId();
+	}
 }

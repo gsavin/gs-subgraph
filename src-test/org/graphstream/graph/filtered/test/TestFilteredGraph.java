@@ -76,9 +76,14 @@ public class TestFilteredGraph {
 			}
 		};
 
-		FilteredGraph g = new FilteredGraph(baseGraph, nodeFilter, edgeFilter);
+		FilteredGraph g = new FilteredGraph(type, baseGraph, nodeFilter,
+				edgeFilter);
+		
 		Node n0, n1, n2;
 		Edge e01, e02, e12;
+
+		checkIndex(g);
+		checkOnlyFilteredInstance(g);
 
 		n0 = g.getNode(type + "0");
 		n1 = g.getNode(type + "1");
@@ -121,6 +126,50 @@ public class TestFilteredGraph {
 		checkReachable(g, n0, n0.getId(), n1.getId(), n2.getId());
 	}
 
+	protected void checkIndex(Graph part) {
+		for (int i = 0; i < part.getNodeCount(); i++) {
+			Node n = part.getNode(i);
+			assertNotNull(n);
+			assertEquals(i, n.getIndex());
+		}
+		
+		for (int i = 0; i < part.getEdgeCount(); i++) {
+			Edge e = part.getEdge(i);
+			assertNotNull(e);
+			assertEquals(i, e.getIndex());
+		}
+	}
+	
+	protected void checkOnlyFilteredInstance(Graph part) {
+		for (Node n : part.getEachNode()) {
+			checkIsFiltered(n);
+
+			LinkedList<Iterator<Node>> nodeIterators = new LinkedList<Iterator<Node>>();
+			nodeIterators.add(n.getBreadthFirstIterator());
+			nodeIterators.add(n.getDepthFirstIterator());
+			nodeIterators.add(n.getNeighborNodeIterator());
+
+			for (Iterator<Node> ite : nodeIterators) {
+				while (ite.hasNext())
+					checkIsFiltered(ite.next());
+			}
+
+			LinkedList<Iterator<Edge>> edgeIterators = new LinkedList<Iterator<Edge>>();
+			edgeIterators.add(n.getEdgeIterator());
+			edgeIterators.add(n.getEnteringEdgeIterator());
+			edgeIterators.add(n.getLeavingEdgeIterator());
+
+			for (Iterator<Edge> ite : edgeIterators) {
+				while (ite.hasNext())
+					checkIsFiltered(ite.next());
+			}
+		}
+
+		for (Edge e : part.getEachEdge()) {
+			checkIsFiltered(e);
+		}
+	}
+
 	protected void checkReachable(Graph g, Node from, String... nodes) {
 		HashSet<String> reached = new HashSet<String>();
 		LinkedList<Node> toVisit = new LinkedList<Node>();
@@ -142,5 +191,13 @@ public class TestFilteredGraph {
 		}
 
 		assertEquals(reached, new HashSet<String>(Arrays.asList(nodes)));
+	}
+
+	protected void checkIsFiltered(Node n) {
+		assertTrue(FilteredNode.class.isAssignableFrom(n.getClass()));
+	}
+
+	protected void checkIsFiltered(Edge e) {
+		assertTrue(FilteredEdge.class.isAssignableFrom(e.getClass()));
 	}
 }

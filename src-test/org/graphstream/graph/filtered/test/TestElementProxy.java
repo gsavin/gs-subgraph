@@ -5,7 +5,7 @@ import static org.junit.Assert.assertEquals;
 import java.util.Random;
 
 import org.graphstream.graph.Element;
-import org.graphstream.graph.filtered.ElementProxy;
+import org.graphstream.graph.filtered.FilteredElement;
 import org.graphstream.graph.implementations.AbstractElement;
 import org.junit.Test;
 
@@ -26,7 +26,7 @@ public class TestElementProxy {
 	public void testId() {
 		String id = getRandomString(20);
 		Element e1 = new TestElement(id);
-		Element e2 = new ElementProxy<Element>(e1);
+		Element e2 = new FilteredElement<Element>(e1);
 
 		assertEquals(e1.getId(), id);
 		assertEquals(e2.getId(), id);
@@ -35,7 +35,7 @@ public class TestElementProxy {
 	@Test
 	public void testAttributeProxyToElement() {
 		Element e1 = new TestElement("testElement");
-		Element e2 = new ElementProxy<Element>(e1);
+		Element e2 = new FilteredElement<Element>(e1);
 
 		String[] keys = { "attr1", "attr2", "attr3" };
 		Object[] values = { getRandomString(30), 10, 123.0 };
@@ -50,7 +50,7 @@ public class TestElementProxy {
 	@Test
 	public void testAttributeElementToProxy() {
 		Element e1 = new TestElement("testElement");
-		Element e2 = new ElementProxy<Element>(e1);
+		Element e2 = new FilteredElement<Element>(e1);
 
 		String[] keys = { "attr1", "attr2", "attr3" };
 		Object[] values = { getRandomString(30), 10, 123.0 };

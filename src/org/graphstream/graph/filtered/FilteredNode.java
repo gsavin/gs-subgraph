@@ -12,8 +12,7 @@ import org.graphstream.graph.Node;
 import org.graphstream.util.FilteredEdgeIterator;
 import org.graphstream.util.FilteredNodeIterator;
 
-public class FilteredNode extends ElementProxy<Node> implements Node,
-		FilteredElement<Node> {
+public class FilteredNode extends FilteredElement<Node> implements Node {
 
 	FilteredGraph graph;
 	int iDegree, oDegree, ioDegree;
@@ -563,4 +562,13 @@ public class FilteredNode extends ElementProxy<Node> implements Node,
 				org, graph.edgeFilter));
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return getId();
+	}
 }
