@@ -2,7 +2,6 @@ package org.graphstream.graph.filtered;
 
 import java.io.IOException;
 import java.util.AbstractCollection;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -16,10 +15,12 @@ import org.graphstream.graph.Graph;
 import org.graphstream.graph.IdAlreadyInUseException;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.NodeFactory;
+import org.graphstream.graph.implementations.AbstractElement;
 import org.graphstream.stream.AttributeSink;
 import org.graphstream.stream.ElementSink;
 import org.graphstream.stream.GraphParseException;
 import org.graphstream.stream.Sink;
+import org.graphstream.stream.SourceBase;
 import org.graphstream.stream.file.FileSink;
 import org.graphstream.stream.file.FileSource;
 import org.graphstream.ui.layout.Layout;
@@ -31,18 +32,15 @@ import org.graphstream.util.FilteredEdgeIterator;
 import org.graphstream.util.FilteredNodeIterator;
 import org.graphstream.util.Filters;
 
-public class FilteredGraph extends FilteredElement<Graph> implements Graph {
+public class FilteredGraph extends AbstractElement implements Graph {
 
-	final String id;
+	protected final Graph element;
 
 	Filter<Node> nodeFilter;
 	Filter<Edge> edgeFilter;
 
 	private final HashMap<String, FilteredNode> filteredNodes;
 	private final HashMap<String, FilteredEdge> filteredEdges;
-
-	ArrayList<ElementSink> elementSinks;
-	ArrayList<AttributeSink> attributeSinks;
 
 	final FilteredSink filteredSink;
 
@@ -52,23 +50,18 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	private int nodesArrayPosition;
 	private int edgesArrayPosition;
 
-	long timeId;
-
 	public FilteredGraph(String id, Graph g) {
 		this(id, g, Filters.<Node> falseFilter(), Filters.<Edge> falseFilter());
 	}
 
 	public FilteredGraph(String id, Graph g, Filter<Node> nf, Filter<Edge> ef) {
-		super(g);
+		super(id);
 
-		this.id = id;
+		element = g;
 
 		filteredNodes = new HashMap<String, FilteredNode>();
 		filteredEdges = new HashMap<String, FilteredEdge>();
 		filteredSink = new FilteredSink();
-
-		elementSinks = new ArrayList<ElementSink>();
-		attributeSinks = new ArrayList<AttributeSink>();
 
 		nodesArray = new FilteredNode[0];
 		edgesArray = new FilteredEdge[0];
@@ -93,15 +86,6 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		}
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see org.graphstream.graph.filtered.FilteredElement#getFilteredElement()
-	 */
-	public Graph getFilteredElement() {
-		return element;
-	}
-
 	public Node getUnfilteredNode(Node n) {
 		if (n instanceof FilteredNode && filteredNodes.containsKey(n.getId()))
 			return ((FilteredNode) n).getFilteredElement();
@@ -120,8 +104,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		element.removeSink(filteredSink);
 		filteredNodes.clear();
 		filteredEdges.clear();
-		elementSinks.clear();
-		attributeSinks.clear();
+		filteredSink.clearSinks();
 	}
 
 	public void include(Node n) {
@@ -135,8 +118,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		nodesArray[nodesArrayPosition] = fn;
 		fn.setIndex(nodesArrayPosition++);
 
-		for (int i = 0; i < elementSinks.size(); i++)
-			elementSinks.get(i).nodeAdded(id, timeId++, n.getId());
+		filteredSink.sendNodeAdded(id, n.getId());
 	}
 
 	public void include(Edge e) {
@@ -156,18 +138,15 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		if (filteredNodes.containsKey(e.getNode1().getId()))
 			filteredNodes.get(e.getNode1().getId()).register(e);
 
-		for (int i = 0; i < elementSinks.size(); i++)
-			elementSinks.get(i).edgeAdded(id, timeId++, e.getId(),
-					e.getSourceNode().getId(), e.getTargetNode().getId(),
-					e.isDirected());
+		filteredSink.sendEdgeAdded(id, e.getId(), e.getSourceNode().getId(), e
+				.getTargetNode().getId(), e.isDirected());
 	}
 
 	public void notInclude(Node n) {
 		if (!filteredNodes.containsKey(n.getId()))
 			return;
-		
-		for (int i = 0; i < elementSinks.size(); i++)
-			elementSinks.get(i).nodeRemoved(id, timeId++, n.getId());
+
+		filteredSink.sendNodeRemoved(id, n.getId());
 
 		FilteredNode fn = filteredNodes.remove(n.getId());
 
@@ -184,8 +163,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		if (!filteredEdges.containsKey(e.getId()))
 			return;
 
-		for (int i = 0; i < elementSinks.size(); i++)
-			elementSinks.get(i).edgeRemoved(id, timeId++, e.getId());
+		filteredSink.sendEdgeRemoved(id, e.getId());
 
 		if (filteredNodes.containsKey(e.getNode0().getId()))
 			filteredNodes.get(e.getNode0().getId()).unregister(e);
@@ -376,7 +354,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * @see org.graphstream.graph.Graph#attributeSinks()
 	 */
 	public Iterable<AttributeSink> attributeSinks() {
-		return attributeSinks;
+		return filteredSink.attributeSinks();
 	}
 
 	/*
@@ -429,7 +407,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * @see org.graphstream.graph.Graph#elementSinks()
 	 */
 	public Iterable<ElementSink> elementSinks() {
-		return elementSinks;
+		return filteredSink.elementSinks();
 	}
 
 	/*
@@ -890,7 +868,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * .AttributeSink)
 	 */
 	public void addAttributeSink(AttributeSink sink) {
-		attributeSinks.add(sink);
+		filteredSink.addAttributeSink(sink);
 	}
 
 	/*
@@ -900,7 +878,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * ElementSink)
 	 */
 	public void addElementSink(ElementSink sink) {
-		elementSinks.add(sink);
+		filteredSink.addElementSink(sink);
 	}
 
 	/*
@@ -909,8 +887,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * @see org.graphstream.stream.Source#addSink(org.graphstream.stream.Sink)
 	 */
 	public void addSink(Sink sink) {
-		attributeSinks.add(sink);
-		elementSinks.add(sink);
+		filteredSink.addSink(sink);
 	}
 
 	/*
@@ -919,7 +896,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * @see org.graphstream.stream.Source#clearAttributeSinks()
 	 */
 	public void clearAttributeSinks() {
-		attributeSinks.clear();
+		filteredSink.clearAttributeSinks();
 	}
 
 	/*
@@ -928,7 +905,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * @see org.graphstream.stream.Source#clearElementSinks()
 	 */
 	public void clearElementSinks() {
-		elementSinks.clear();
+		filteredSink.clearElementSinks();
 	}
 
 	/*
@@ -937,8 +914,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * @see org.graphstream.stream.Source#clearSinks()
 	 */
 	public void clearSinks() {
-		attributeSinks.clear();
-		elementSinks.clear();
+		filteredSink.clearSinks();
 	}
 
 	/*
@@ -949,7 +925,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * .AttributeSink)
 	 */
 	public void removeAttributeSink(AttributeSink sink) {
-		attributeSinks.remove(sink);
+		filteredSink.removeAttributeSink(sink);
 	}
 
 	/*
@@ -960,7 +936,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * .ElementSink)
 	 */
 	public void removeElementSink(ElementSink sink) {
-		elementSinks.remove(sink);
+		filteredSink.removeElementSink(sink);
 	}
 
 	/*
@@ -970,8 +946,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 	 * org.graphstream.stream.Source#removeSink(org.graphstream.stream.Sink)
 	 */
 	public void removeSink(Sink sink) {
-		attributeSinks.remove(sink);
-		elementSinks.remove(sink);
+		filteredSink.removeSink(sink);
 	}
 
 	/*
@@ -1158,7 +1133,11 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		return new FilteredNodeIterator<Node>(element.iterator(), nodeFilter);
 	}
 
-	class FilteredSink implements Sink {
+	class FilteredSink extends SourceBase implements Sink {
+		long newEvent() {
+			return sourceTime.newEvent();
+		}
+
 		/*
 		 * (non-Javadoc)
 		 * 
@@ -1194,8 +1173,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		 * long)
 		 */
 		public void graphCleared(String sourceId, long timeId) {
-			for (int i = 0; i < elementSinks.size(); i++)
-				elementSinks.get(i).graphCleared(sourceId, timeId);
+			sendGraphCleared(sourceId, timeId);
 		}
 
 		/*
@@ -1231,8 +1209,7 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		 * long, double)
 		 */
 		public void stepBegins(String sourceId, long timeId, double step) {
-			for (int i = 0; i < elementSinks.size(); i++)
-				elementSinks.get(i).stepBegins(sourceId, timeId, step);
+			sendStepBegins(sourceId, timeId, step);
 		}
 
 		/*
@@ -1246,11 +1223,9 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 				String edgeId, String attribute, Object value) {
 			Edge e = element.getEdge(edgeId);
 
-			if (edgeFilter.isAvailable(e)) {
-				for (int i = 0; i < attributeSinks.size(); i++)
-					attributeSinks.get(i).edgeAttributeAdded(sourceId, timeId,
-							edgeId, attribute, value);
-			}
+			if (edgeFilter.isAvailable(e))
+				sendEdgeAttributeAdded(sourceId, timeId, edgeId, attribute,
+						value);
 		}
 
 		/*
@@ -1266,11 +1241,9 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 				Object newValue) {
 			Edge e = element.getEdge(edgeId);
 
-			if (edgeFilter.isAvailable(e)) {
-				for (int i = 0; i < attributeSinks.size(); i++)
-					attributeSinks.get(i).edgeAttributeChanged(sourceId,
-							timeId, edgeId, attribute, oldValue, newValue);
-			}
+			if (edgeFilter.isAvailable(e))
+				sendEdgeAttributeChanged(sourceId, timeId, edgeId, attribute,
+						oldValue, newValue);
 		}
 
 		/*
@@ -1284,11 +1257,8 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 				String edgeId, String attribute) {
 			Edge e = element.getEdge(edgeId);
 
-			if (edgeFilter.isAvailable(e)) {
-				for (int i = 0; i < attributeSinks.size(); i++)
-					attributeSinks.get(i).edgeAttributeRemoved(sourceId,
-							timeId, edgeId, attribute);
-			}
+			if (edgeFilter.isAvailable(e))
+				sendEdgeAttributeRemoved(sourceId, timeId, edgeId, attribute);
 		}
 
 		/*
@@ -1300,9 +1270,6 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		 */
 		public void graphAttributeAdded(String sourceId, long timeId,
 				String attribute, Object value) {
-			for (int i = 0; i < attributeSinks.size(); i++)
-				attributeSinks.get(i).graphAttributeAdded(sourceId, timeId,
-						attribute, value);
 		}
 
 		/*
@@ -1314,9 +1281,6 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		 */
 		public void graphAttributeChanged(String sourceId, long timeId,
 				String attribute, Object oldValue, Object newValue) {
-			for (int i = 0; i < attributeSinks.size(); i++)
-				attributeSinks.get(i).graphAttributeChanged(sourceId, timeId,
-						attribute, oldValue, newValue);
 		}
 
 		/*
@@ -1328,9 +1292,6 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		 */
 		public void graphAttributeRemoved(String sourceId, long timeId,
 				String attribute) {
-			for (int i = 0; i < attributeSinks.size(); i++)
-				attributeSinks.get(i).graphAttributeRemoved(sourceId, timeId,
-						attribute);
 		}
 
 		/*
@@ -1344,11 +1305,9 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 				String nodeId, String attribute, Object value) {
 			Node n = element.getNode(nodeId);
 
-			if (nodeFilter.isAvailable(n)) {
-				for (int i = 0; i < attributeSinks.size(); i++)
-					attributeSinks.get(i).nodeAttributeAdded(sourceId, timeId,
-							nodeId, attribute, value);
-			}
+			if (nodeFilter.isAvailable(n))
+				sendNodeAttributeAdded(sourceId, timeId, nodeId, attribute,
+						value);
 		}
 
 		/*
@@ -1364,11 +1323,9 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 				Object newValue) {
 			Node n = element.getNode(nodeId);
 
-			if (nodeFilter.isAvailable(n)) {
-				for (int i = 0; i < attributeSinks.size(); i++)
-					attributeSinks.get(i).nodeAttributeChanged(sourceId,
-							timeId, nodeId, attribute, oldValue, newValue);
-			}
+			if (nodeFilter.isAvailable(n))
+				sendNodeAttributeChanged(sourceId, timeId, nodeId, attribute,
+						oldValue, newValue);
 		}
 
 		/*
@@ -1382,11 +1339,8 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 				String nodeId, String attribute) {
 			Node n = element.getNode(nodeId);
 
-			if (nodeFilter.isAvailable(n)) {
-				for (int i = 0; i < attributeSinks.size(); i++)
-					attributeSinks.get(i).nodeAttributeRemoved(sourceId,
-							timeId, nodeId, attribute);
-			}
+			if (nodeFilter.isAvailable(n))
+				sendNodeAttributeRemoved(sourceId, timeId, nodeId, attribute);
 		}
 	}
 
@@ -1462,5 +1416,41 @@ public class FilteredGraph extends FilteredElement<Graph> implements Graph {
 		public void remove() {
 			ite.remove();
 		}
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * org.graphstream.graph.implementations.AbstractElement#attributeChanged
+	 * (java.lang.String, long, java.lang.String,
+	 * org.graphstream.graph.implementations
+	 * .AbstractElement.AttributeChangeEvent, java.lang.Object,
+	 * java.lang.Object)
+	 */
+	protected void attributeChanged(String sourceId, long timeId,
+			String attribute, AttributeChangeEvent event, Object oldValue,
+			Object newValue) {
+		filteredSink.sendAttributeChangedEvent(sourceId, timeId, id,
+				SourceBase.ElementType.GRAPH, attribute, event, oldValue,
+				newValue);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.implementations.AbstractElement#myGraphId()
+	 */
+	protected String myGraphId() {
+		return id;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see org.graphstream.graph.implementations.AbstractElement#newEvent()
+	 */
+	protected long newEvent() {
+		return filteredSink.newEvent();
 	}
 }
