@@ -44,9 +44,10 @@ public class FilteredEdge extends FilteredElement<Edge> implements Edge {
 	 * 
 	 * @see org.graphstream.graph.Edge#getOpposite(org.graphstream.graph.Node)
 	 */
-	@SuppressWarnings("unchecked")
 	public <T extends Node> T getOpposite(Node node) {
-		node = ((FilteredElement<Node>) node).getFilteredElement();
+		if (node instanceof FilteredElement<?>)
+			node = (Node) ((FilteredElement<?>) node).getFilteredElement();
+
 		return graph.getNode(element.getOpposite(node).getId());
 	}
 

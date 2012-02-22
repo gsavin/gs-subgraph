@@ -184,6 +184,9 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	 * org.graphstream.graph.Node#getEdgeBetween(org.graphstream.graph.Node)
 	 */
 	public <T extends Edge> T getEdgeBetween(Node node) {
+		if (node instanceof FilteredElement<?>)
+			node = (Node) ((FilteredElement<?>) node).getFilteredElement();
+		
 		Edge e = element.getEdgeBetween(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
@@ -227,6 +230,9 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEdgeFrom(org.graphstream.graph.Node)
 	 */
 	public <T extends Edge> T getEdgeFrom(Node node) {
+		if (node instanceof FilteredElement<?>)
+			node = (Node) ((FilteredElement<?>) node).getFilteredElement();
+		
 		Edge e = element.getEdgeFrom(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
@@ -300,6 +306,9 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	 * @see org.graphstream.graph.Node#getEdgeToward(org.graphstream.graph.Node)
 	 */
 	public <T extends Edge> T getEdgeToward(Node node) {
+		if (node instanceof FilteredElement<?>)
+			node = (Node) ((FilteredElement<?>) node).getFilteredElement();
+		
 		Edge e = element.getEdgeToward(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
