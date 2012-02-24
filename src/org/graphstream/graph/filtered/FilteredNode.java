@@ -34,11 +34,16 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	}
 
 	void register(Edge e) {
+		assert graph.getEdgeFilter().isAvailable(e);
+
 		if (e.isDirected()) {
 			if (e.getSourceNode().getId().equals(getId()))
 				oDegree++;
 			else
 				iDegree++;
+		} else {
+			oDegree++;
+			iDegree++;
 		}
 
 		ioDegree++;
@@ -50,6 +55,9 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 				oDegree--;
 			else
 				iDegree--;
+		} else {
+			oDegree--;
+			iDegree--;
 		}
 
 		ioDegree--;
@@ -147,20 +155,26 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	public <T extends Edge> T getEdge(int i) {
 		int j = 0;
 
-		while (j < ioDegree) {
+		if (i < 0 || i >= ioDegree)
+			throw new IndexOutOfBoundsException("Node \"" + getId() + "\""
+					+ " has no edge " + i);
+
+		while (j < element.getDegree()) {
 			Edge e = element.getEdge(j);
+
+			assert e != null;
 
 			if (graph.getEdgeFilter().isAvailable(e)) {
 				if (i == 0)
 					return graph.getEdge(e.getId());
-				else
+				else if (i > 0)
 					i--;
 			}
 
 			j++;
 		}
 
-		return null;
+		throw new InternalError();
 	}
 
 	/*
@@ -186,7 +200,7 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	public <T extends Edge> T getEdgeBetween(Node node) {
 		if (node instanceof FilteredElement<?>)
 			node = (Node) ((FilteredElement<?>) node).getFilteredElement();
-		
+
 		Edge e = element.getEdgeBetween(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
@@ -232,7 +246,7 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	public <T extends Edge> T getEdgeFrom(Node node) {
 		if (node instanceof FilteredElement<?>)
 			node = (Node) ((FilteredElement<?>) node).getFilteredElement();
-		
+
 		Edge e = element.getEdgeFrom(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
@@ -308,7 +322,7 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	public <T extends Edge> T getEdgeToward(Node node) {
 		if (node instanceof FilteredElement<?>)
 			node = (Node) ((FilteredElement<?>) node).getFilteredElement();
-		
+
 		Edge e = element.getEdgeToward(node);
 
 		if (graph.getEdgeFilter().isAvailable(e))
@@ -340,7 +354,11 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	public <T extends Edge> T getEnteringEdge(int i) {
 		int j = 0;
 
-		while (j < iDegree) {
+		if (i < 0 || i >= iDegree)
+			throw new IndexOutOfBoundsException("Node \"" + getId() + "\""
+					+ " has no edge " + i);
+
+		while (j < element.getInDegree()) {
 			Edge e = element.getEnteringEdge(j);
 
 			if (graph.getEdgeFilter().isAvailable(e)) {
@@ -353,7 +371,7 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 			j++;
 		}
 
-		return null;
+		throw new InternalError();
 	}
 
 	/*
@@ -412,7 +430,11 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 	public <T extends Edge> T getLeavingEdge(int i) {
 		int j = 0;
 
-		while (j < oDegree) {
+		if (i < 0 || i >= oDegree)
+			throw new IndexOutOfBoundsException("Node \"" + getId() + "\""
+					+ " has no edge " + i);
+
+		while (j < element.getOutDegree()) {
 			Edge e = element.getLeavingEdge(j);
 
 			if (graph.getEdgeFilter().isAvailable(e)) {
@@ -425,7 +447,7 @@ public class FilteredNode extends FilteredElement<Node> implements Node {
 			j++;
 		}
 
-		return null;
+		throw new InternalError();
 	}
 
 	/*

@@ -108,6 +108,13 @@ public class TestFilteredGraph {
 		assertEquals(2, n1.getDegree());
 		assertEquals(2, n2.getDegree());
 
+		assertNotNull(n0.getEdge(0));
+		assertNotNull(n0.getEdge(1));
+		assertNotNull(n1.getEdge(0));
+		assertNotNull(n1.getEdge(1));
+		assertNotNull(n2.getEdge(0));
+		assertNotNull(n2.getEdge(1));
+		
 		assertNotNull(e01);
 		assertNotNull(e02);
 		assertNotNull(e12);
